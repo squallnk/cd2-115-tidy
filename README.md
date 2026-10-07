@@ -35,8 +35,13 @@
 ```bash
 mkdir -p /boot/config/plugins/dockerMan/templates-user
 curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-cd2-115-tidy.xml \
-  https://raw.githubusercontent.com/squallnk/cd2-115-tidy/main/unraid/cd2-115-tidy.xml
+  https://cdn.jsdelivr.net/gh/squallnk/cd2-115-tidy@main/unraid/cd2-115-tidy.xml
 ```
+
+> 用的是 jsDelivr CDN（国内可达）。如果拉不到，可换回 GitHub 原始地址：
+> `https://raw.githubusercontent.com/squallnk/cd2-115-tidy/main/unraid/cd2-115-tidy.xml`
+> 或直接在 GitHub 网页上打开模板文件、复制内容、在 Unraid 上用记事本存成
+> `/boot/config/plugins/dockerMan/templates-user/my-cd2-115-tidy.xml`。
 
 然后 **Docker 页面 → Add Container → Template 下拉选 `cd2-115-tidy`**，
 只需填 **CD2 令牌** 一项，其余已预填，点 Apply 即可。
