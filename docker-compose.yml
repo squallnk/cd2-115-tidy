@@ -1,0 +1,22 @@
+services:
+  cd2-115-tidy:
+    image: ghcr.io/squallnk/cd2-115-tidy:latest
+    # 想自己改代码就用下面这行代替 image 行：
+    # build: .
+    container_name: cd2-115-tidy
+    restart: unless-stopped
+    ports:
+      - "8380:8080"
+    environment:
+      # CloudDrive2 的 gRPC 地址（主机:端口，不要带 http://）
+      CD2_URL: "192.168.0.254:19798"
+      # 强烈建议用 .env 文件或 Unraid 的变量框传，别写进仓库
+      CD2_TOKEN: "${CD2_TOKEN}"
+      # 要整理的目标目录（CD2 挂载点下的路径）
+      ROOT_PATH: "/115/4"
+      # 图片编号位数：4 → 0001.jpg
+      PAD: "4"
+      # 扫描并发（只影响只读的目录遍历）
+      SCAN_CONC: "4"
+    volumes:
+      - ./data:/data

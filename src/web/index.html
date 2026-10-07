@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CD2 115 图集整理</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --fg:#e6e9ef; --dim:#8b93a5; --ok:#3fb950; --warn:#d29922; --err:#f85149; --acc:#4c8dff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:14px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line);
+         display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;font-weight:600}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dim);margin-right:6px}
+  .dot.ok{background:var(--ok)} .dot.err{background:var(--err)} .dot.run{background:var(--warn);animation:p 1s infinite}
+  @keyframes p{50%{opacity:.3}}
+  main{padding:22px;max-width:1180px;margin:0 auto}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .card h2{margin:0 0 10px;font-size:14px;font-weight:600;color:var(--fg)}
+  .num{font-size:22px;font-weight:600}
+  .dim{color:var(--dim);font-size:12px}
+  button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+         border-radius:7px;padding:8px 14px;font-size:13px;cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--acc)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  button.danger{border-color:#5a2b2b;color:#ffb4b4}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:500}
+  td.r,th.r{text-align:right}
+  .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:8px 0}
+  .bar>i{display:block;height:100%;background:var(--acc);width:0;transition:width .4s}
+  pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:12px;
+      max-height:300px;overflow:auto;font-size:12px;margin:0}
+  .tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;
+       background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+  .scroll{max-height:420px;overflow:auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>CD2 115 图集整理</h1>
+  <span id="conn"><span class="dot"></span><span class="dim">连接中…</span></span>
+  <span id="qps" class="tag">QPS —</span>
+  <span id="rootTag" class="tag">目标 —</span>
+</header>
+
+<main>
+  <div id="err" class="card" style="display:none;border-color:#5a2b2b"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>1 · 扫描</h2>
+      <div class="dim" id="scanInfo">尚未扫描</div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="bScan">开始扫描</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>2 · 改名计划</h2>
+      <div class="dim" id="planInfo">尚未生成</div>
+      <div class="row" style="margin-top:10px">
+        <button id="bPlan">生成计划</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>3 · 执行改名</h2>
+      <div class="dim" id="renameInfo">—</div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="bRename">执行改名</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>4 · 清理</h2>
+      <div class="dim" id="cleanInfo">—</div>
+      <div class="row" style="margin-top:10px">
+        <button class="danger" id="bClean">删除非图片 + 空目录</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0" id="jobTitle">当前作业：空闲</h2>
+      <button id="bStop" disabled>中止</button>
+    </div>
+    <div class="bar"><i id="jobBar"></i></div>
+    <div class="dim" id="jobDetail">—</div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>目录概览</h2>
+    <div class="scroll"><table id="tbl"><tbody><tr><td class="dim">扫描后显示</td></tr></tbody></table></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>待删清单</h2>
+    <div class="scroll"><table id="tblClean"><tbody><tr><td class="dim">生成计划后显示</td></tr></tbody></table></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>日志</h2>
+    <pre id="log">—</pre>
+  </div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s)
+const esc = (s) => String(s ?? '').replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))
+const gb = (b) => (b / 1073741824).toFixed(2) + ' GB'
+const api = async (p, opt) => (await fetch(p, opt)).json()
+const post = (p, body) => api(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) })
+
+let busy = false
+
+function setConn(ok, text) {
+  $('#conn').innerHTML = `<span class="dot ${ok ? 'ok' : 'err'}"></span><span class="dim">${esc(text)}</span>`
+}
+
+async function boot() {
+  const c = await api('/api/config')
+  $('#rootTag').textContent = '目标 ' + c.root
+  if (!c.hasToken) {
+    $('#err').style.display = 'block'
+    $('#err').innerHTML = '<b>未配置 CD2_TOKEN</b><div class="dim">启动容器时传入 <code>-e CD2_TOKEN=你的令牌</code></div>'
+    setConn(false, '未配置令牌')
+    return
+  }
+  const p = await api('/api/probe')
+  if (!p.ok) { setConn(false, p.error); return }
+  const v115 = p.apis.find((a) => a.qps !== null && a.qps > 0)
+  setConn(true, `${p.apis.length} 个云盘在线`)
+  if (v115) {
+    const q = v115.qps
+    $('#qps').textContent = `QPS ${q}`
+    $('#qps').title = `${v115.name}(${v115.path}) 的 QPS 上限 = ${q}\n单文件约 ${(1/q).toFixed(2)} 秒`
+  }
+  await refreshSummaries()
+}
+
+async function refreshSummaries() {
+  const s = await api('/api/scan-summary')
+  if (s.exists) {
+    $('#scanInfo').innerHTML = `${s.dirs} 目录 · ${s.files} 文件<br>
+      <b>${s.photos}</b> 张图 · ${s.videos} 视频 · ${s.others} 其他`
+    const rows = s.topLevels.map((t) =>
+      `<tr><td>${esc(t.name)}</td><td class="r">${t.dirs}</td><td class="r">${t.img}</td>
+       <td class="r">${t.vid}</td><td class="r">${t.other}</td><td class="r">${t.maxDepth}</td></tr>`).join('')
+    $('#tbl').innerHTML = `<thead><tr><th>一级目录</th><th class="r">子目录</th><th class="r">图片</th>
+      <th class="r">视频</th><th class="r">其他</th><th class="r">最大深度</th></tr></thead><tbody>${rows}</tbody>`
+  }
+  const p = await api('/api/plan-summary')
+  if (p.exists) {
+    $('#planInfo').innerHTML = `${p.units} 个单元 · ${p.photos} 张图 · ${p.pad} 位编号`
+    $('#renameInfo').textContent = `${p.photos} 张待改`
+    if (p.clean) {
+      $('#cleanInfo').innerHTML = `${p.clean.victims} 个文件（${gb(p.clean.bytes)}）<br>${p.clean.deadDirs} 个目录会变空`
+      const rows = [
+        ...p.clean.deadList.map((d) => `<tr><td><span class="tag">空目录</span></td><td>${esc(d)}</td></tr>`),
+        ...p.clean.topVictims.map((v) => `<tr><td><span class="tag">${esc(v.k)}</span></td><td>${esc(v.p)}</td></tr>`)
+      ].join('') || '<tr><td class="dim">无需删除</td></tr>'
+      $('#tblClean').innerHTML = `<thead><tr><th>类型</th><th>路径</th></tr></thead><tbody>${rows}</tbody>`
+    }
+    const rows = p.sample.map((u) =>
+      `<tr><td>${esc(u.dir)}</td><td class="r">${u.count}</td>
+       <td class="dim">${esc(u.first?.from || '')} → ${esc(u.first?.to || '')}</td>
+       <td class="dim">${esc(u.last?.to || '')}</td></tr>`).join('')
+    $('#tbl').innerHTML = `<thead><tr><th>单元目录</th><th class="r">图片</th><th>首个映射</th><th>末个</th></tr></thead><tbody>${rows}</tbody>`
+  }
+}
+
+function renderJob(j) {
+  const running = j.status === 'running'
+  busy = running
+  $('#bStop').disabled = !running
+  for (const id of ['bScan', 'bPlan', 'bRename', 'bClean']) $('#' + id).disabled = running
+
+  const label = { idle: '空闲', running: '进行中', done: '已完成', error: '出错' }[j.status] || j.status
+  $('#jobTitle').innerHTML = `当前作业：${j.type ? esc(j.type) : '无'} <span class="tag">${label}</span>`
+
+  if (j.progress) {
+    const p = j.progress
+    if (p.dirs !== undefined && p.files !== undefined && p.phase === '扫描目录') {
+      $('#jobDetail').textContent = `已扫 ${p.dirs} 目录 / ${p.files} 文件 — ${p.current || ''}`
+      $('#jobBar').style.width = '0%'
+    } else if (p.unitsTotal) {
+      const pct = (p.units / p.unitsTotal * 100).toFixed(1)
+      $('#jobBar').style.width = pct + '%'
+      $('#jobDetail').innerHTML = `${p.units}/${p.unitsTotal} 单元 · 已改 <b>${p.renamed}</b> · 跳过 ${p.skipped} · 失败 ${p.failed}` +
+        (p.throttleHits ? ` · <span style="color:var(--err)">⛔风控${p.throttleHits}</span>` : '')
+    } else if (p.filesDeleted !== undefined) {
+      $('#jobDetail').textContent = `已删文件 ${p.filesDeleted}（${gb(p.bytes)}）· 空目录 ${p.dirsDeleted} · 失败 ${p.filesFailed + p.dirsFailed}`
+    }
+  } else if (j.status === 'done') {
+    $('#jobBar').style.width = '100%'
+    $('#jobDetail').textContent = JSON.stringify(j.result || {})
+  } else if (j.status === 'error') {
+    $('#jobDetail').innerHTML = `<span style="color:var(--err)">${esc(j.error)}</span>`
+  }
+  const log = (j.log || []).map((l) => `${new Date(l.t).toLocaleTimeString()}  ${l.msg}`).join('\n')
+  $('#log').textContent = log || '—'
+}
+
+async function tick() {
+  try {
+    const { job } = await api('/api/job')
+    renderJob(job)
+    if (!job || job.status !== 'running') {
+      // 作业刚结束 → 刷新摘要一次
+      if (tick.last !== job?.status) { tick.last = job?.status; await refreshSummaries() }
+    } else { tick.last = 'running' }
+  } catch (e) { setConn(false, '界面与服务断连') }
+}
+
+$('#bScan').onclick = () => post('/api/scan')
+$('#bPlan').onclick = () => post('/api/plan')
+$('#bRename').onclick = () => { if (confirm('确认执行改名？此操作会真实修改 115 上的文件名。')) post('/api/rename') }
+$('#bClean').onclick = () => { if (confirm('确认删除所有非图片文件和空目录？文件会进 115 回收站，30 天内可恢复。')) post('/api/clean') }
+$('#bStop').onclick = () => post('/api/stop')
+
+boot()
+setInterval(tick, 1500)
+tick()
+</script>
+</body>
+</html>

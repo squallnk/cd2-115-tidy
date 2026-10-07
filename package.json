@@ -1,0 +1,18 @@
+{
+  "name": "cd2-115-tidy",
+  "version": "1.0.0",
+  "description": "常驻 Web 服务：整理 CloudDrive2 上 115 网盘的图集目录 —— 递归重命名为零填充序号、清除非图片文件与空目录，并按云端 QPS 上限限速以避开风控。",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.mjs"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.5",
+    "@grpc/proto-loader": "^0.8.1"
+  },
+  "license": "MIT"
+}
