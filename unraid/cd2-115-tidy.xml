@@ -13,7 +13,7 @@
   <Category>Tools:Utilities:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://cdn.jsdelivr.net/gh/squallnk/cd2-115-tidy@main/unraid/cd2-115-tidy.xml</TemplateURL>
-  <Icon>https://cdn.jsdelivr.net/gh/squallnk/cd2-115-tidy@main/unraid/icon.svg</Icon>
+  <Icon>https://cdn.jsdelivr.net/gh/squallnk/cd2-115-tidy@main/unraid/icon.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
