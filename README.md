@@ -28,11 +28,30 @@
 
 ### Unraid
 
-1. 装 **Docker Compose Manager** 插件，或直接用 `docker run`
-2. 新建目录 `/mnt/user/appdata/cd2-115-tidy`，放入 `docker-compose.yml`
-3. 编辑 compose，填上你的 CD2 地址和 token
-4. `docker compose up -d`
-5. 打开 `http://<你的IP>:8380`
+**方法一：模板安装（推荐，点几下就行）**
+
+在 Unraid 终端跑一次这条，把模板装进本地模板目录：
+
+```bash
+mkdir -p /boot/config/plugins/dockerMan/templates-user
+curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-cd2-115-tidy.xml \
+  https://raw.githubusercontent.com/squallnk/cd2-115-tidy/main/unraid/cd2-115-tidy.xml
+```
+
+然后 **Docker 页面 → Add Container → Template 下拉选 `cd2-115-tidy`**，
+只需填 **CD2 令牌** 一项，其余已预填，点 Apply 即可。
+
+**方法二：Docker Compose Manager 插件**
+
+1. 新建目录 `/mnt/user/appdata/cd2-115-tidy`，放入仓库里的 `docker-compose.yml`
+2. 编辑它，填上 CD2 地址和令牌
+3. `docker compose up -d`
+
+**方法三：纯 docker run**
+
+见下方。
+
+装完统一打开 `http://<你的IP>:8380`
 
 ### docker run
 

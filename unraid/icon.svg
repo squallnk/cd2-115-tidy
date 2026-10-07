@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="cd2-115-tidy">
+  <rect width="128" height="128" rx="26" fill="#171a21"/>
+  <path d="M22 46a8 8 0 0 1 8-8h22l10 12h36a8 8 0 0 1 8 8v38a8 8 0 0 1-8 8H30a8 8 0 0 1-8-8z" fill="#4c8dff"/>
+  <text x="64" y="92" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace"
+        font-size="30" font-weight="700" fill="#0f1115" letter-spacing="1">0001</text>
+</svg>

@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>cd2-115-tidy</Name>
+  <Repository>ghcr.io/squallnk/cd2-115-tidy:latest</Repository>
+  <Registry>https://github.com/squallnk/cd2-115-tidy/pkgs/container/cd2-115-tidy</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/squallnk/cd2-115-tidy/issues</Support>
+  <Project>https://github.com/squallnk/cd2-115-tidy</Project>
+  <Overview>整理 CloudDrive2 挂载的 115 网盘图集目录。&#13;&#10;&#13;&#10;四步流水线（每步都要你手动点，不会自动改任何东西）：&#13;&#10;1. 扫描 —— 只读遍历目标目录，列出目录/文件统计&#13;&#10;2. 生成计划 —— 本地算好「原名 → 新名」映射和待删清单，界面可直接看&#13;&#10;3. 执行改名 —— 每个含图片的目录各自从 0001 起编号，保留目录结构&#13;&#10;4. 清理 —— 删除非图片文件与因此变空的目录&#13;&#10;&#13;&#10;为什么慢：CD2 的 RenameFiles 不合并云端调用，客户端并发也无效，实际吞吐由 CD2 的 maxQueriesPerSecond 决定。115 默认配 0.9，约 0.85 文件/秒 —— 9000 张图约 3 小时，但零风控。想加速请自行去 CD2 调 QPS 上限（115 自报可到 5.0），风险自负。&#13;&#10;&#13;&#10;改名幂等：逐个文件识别它当前是原始名、旧三位名还是已达标的四位名，所以任务中断、重复点击、中途改编号位数都能安全续跑。&#13;&#10;删除可恢复：115 不支持永久删除，删掉的文件进 115 回收站，30 天内可捞回。</Overview>
+  <Category>Tools:Utilities:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/squallnk/cd2-115-tidy/main/unraid/cd2-115-tidy.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/squallnk/cd2-115-tidy/main/unraid/icon.svg</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled></DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+
+  <Config Name="WebUI 端口" Target="8080" Default="8380" Mode="tcp"
+          Description="浏览器访问端口，例如 http://你的Unraid IP:8380"
+          Type="Port" Display="always" Required="true" Mask="false">8380</Config>
+
+  <Config Name="CD2 地址" Target="CD2_URL" Default="192.168.0.254:19798" Mode=""
+          Description="CloudDrive2 的 gRPC 地址，格式 主机:端口。写成 192.168.0.254:19798 这样，不要带 http:// 前缀"
+          Type="Variable" Display="always" Required="true" Mask="false">192.168.0.254:19798</Config>
+
+  <Config Name="CD2 令牌" Target="CD2_TOKEN" Default="" Mode=""
+          Description="CloudDrive2 的 API 令牌。在 CD2 界面里生成"
+          Type="Variable" Display="always" Required="true" Mask="true"></Config>
+
+  <Config Name="目标目录" Target="ROOT_PATH" Default="/115/4" Mode=""
+          Description="要整理的目录，填 CD2 挂载点下的路径"
+          Type="Variable" Display="always" Required="true" Mask="false">/115/4</Config>
+
+  <Config Name="编号位数" Target="PAD" Default="4" Mode=""
+          Description="图片编号位数：4 → 0001.jpg。目录内图片超过 10 的该次方位数时自动加宽"
+          Type="Variable" Display="always" Required="false" Mask="false">4</Config>
+
+  <Config Name="扫描并发" Target="SCAN_CONC" Default="4" Mode=""
+          Description="只读目录遍历的并发数。不影响改名速度（改名由 CD2 服务端串行）"
+          Type="Variable" Display="advanced" Required="false" Mask="false">4</Config>
+
+  <Config Name="数据目录" Target="/data" Default="/mnt/user/appdata/cd2-115-tidy" Mode="rw"
+          Description="扫描结果与改名计划落盘位置，容器重启后还能看到上次的计划"
+          Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/cd2-115-tidy</Config>
+</Container>
