@@ -39,6 +39,10 @@
   .bar>i{display:block;height:100%;background:var(--acc);width:0;transition:width .4s}
   pre{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:12px;
       max-height:300px;overflow:auto;font-size:12px;margin:0}
+  input{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+        border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit}
+  input:focus{outline:none;border-color:var(--acc)}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12px}
   .tag{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;
        background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
   .scroll{max-height:420px;overflow:auto}
@@ -96,6 +100,25 @@
     </div>
     <div class="bar"><i id="jobBar"></i></div>
     <div class="dim" id="jobDetail">—</div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>设置</h2>
+    <div class="grid">
+      <div><div class="dim">目标目录</div><input id="sRoot" style="width:100%"></div>
+      <div><div class="dim">编号位数（4 → 0001.jpg）</div><input id="sPad" type="number" min="1" max="8" style="width:100%"></div>
+      <div><div class="dim">自动整理间隔（秒，0 = 关闭）</div><input id="sWatch" type="number" min="0" style="width:100%"></div>
+      <div><div class="dim">目录去前缀正则（留空 = 关闭）</div><input id="sPrefix" style="width:100%" placeholder="^www[.]98T[.]la@"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="bSave">保存设置</button>
+      <span class="dim" id="saveMsg"></span>
+    </div>
+    <div class="dim" style="margin-top:8px">
+      多个前缀用 <code>|</code> 分隔，例如
+      <code>^www[.]98T[.]la@|^\[广告\]|^www\.[a-z0-9]+\.(com|net)@</code>。<br>
+      用 <code>[.]</code> 代替 <code>\.</code> 可以少一层转义烦恼。保存后立即生效，容器重启也保留。
+    </div>
   </div>
 
   <div class="card" style="margin-top:14px">
@@ -229,12 +252,35 @@ async function tick() {
 
 $('#bScan').onclick = () => post('/api/scan')
 $('#bAuto').onclick = () => post('/api/auto')
+
+async function loadSettings() {
+  const s = await api('/api/settings')
+  $('#sRoot').value = s.root
+  $('#sPad').value = s.pad
+  $('#sWatch').value = s.watchInterval
+  $('#sPrefix').value = s.prefixStrip || ''
+}
+
+$('#bSave').onclick = async () => {
+  $('#saveMsg').textContent = '保存中…'
+  const r = await post('/api/settings', {
+    root: $('#sRoot').value.trim(),
+    pad: Number($('#sPad').value),
+    watchInterval: Number($('#sWatch').value),
+    prefixStrip: $('#sPrefix').value.trim(),
+  })
+  if (r.error) { $('#saveMsg').innerHTML = `<span style="color:var(--err)">${esc(r.error)}</span>`; return }
+  const extra = (r.prefixMatches === null || r.prefixMatches === undefined) ? '' : `，当前匹配 ${r.prefixMatches} 个目录`
+  $('#saveMsg').innerHTML = `<span style="color:var(--ok)">已保存${extra}</span>`
+  await boot()
+}
 $('#bPlan').onclick = () => post('/api/plan')
 $('#bRename').onclick = () => { if (confirm('确认执行改名？此操作会真实修改 115 上的文件名。')) post('/api/rename') }
 $('#bClean').onclick = () => { if (confirm('确认删除所有非图片文件和空目录？文件会进 115 回收站，30 天内可恢复。')) post('/api/clean') }
 $('#bStop').onclick = () => post('/api/stop')
 
 boot()
+loadSettings()
 setInterval(tick, 1500)
 tick()
 </script>

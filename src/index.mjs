@@ -26,6 +26,14 @@ const cfg = {
 }
 
 const store = createStore(cfg.dataDir)
+
+// 界面上改过的设置优先于环境变量，并且容器重启后仍然生效
+const saved = store.read('settings.json', null)
+if (saved && typeof saved === 'object') {
+  for (const k of ['root', 'pad', 'conc', 'watchInterval', 'prefixStrip']) {
+    if (saved[k] !== undefined && saved[k] !== null) cfg[k] = saved[k]
+  }
+}
 let cachedClient = null
 async function getClient() {
   if (!cfg.cd2Token) throw new Error('未配置 CD2_TOKEN 环境变量')
@@ -86,6 +94,58 @@ const server = createServer(async (req, res) => {
       }
       if (path === '/api/probe') {
         return json(res, 200, await probe())
+      }
+      if (path === '/api/settings') {
+        if (req.method === 'GET') {
+          return json(res, 200, {
+            root: cfg.root, pad: cfg.pad, conc: cfg.conc,
+            watchInterval: cfg.watchInterval, prefixStrip: cfg.prefixStrip,
+          })
+        }
+        const b = await readBody(req)
+        const patch = {}
+        if (typeof b.root === 'string' && b.root.trim()) patch.root = b.root.trim().replace(/\/+$/, '') || '/'
+        if (b.pad !== undefined) {
+          const n = Number(b.pad)
+          if (!Number.isInteger(n) || n < 1 || n > 8) return json(res, 400, { error: '编号位数必须是 1~8 的整数' })
+          patch.pad = n
+        }
+        if (b.conc !== undefined) {
+          const n = Number(b.conc)
+          if (!Number.isInteger(n) || n < 1 || n > 16) return json(res, 400, { error: '扫描并发必须是 1~16 的整数' })
+          patch.conc = n
+        }
+        if (b.watchInterval !== undefined) {
+          const n = Number(b.watchInterval)
+          if (!Number.isFinite(n) || n < 0) return json(res, 400, { error: '自动间隔必须是不小于 0 的数字' })
+          patch.watchInterval = n
+        }
+        if (b.prefixStrip !== undefined) {
+          const v = String(b.prefixStrip).trim()
+          if (v) {
+            try { new RegExp(v) } catch (e) { return json(res, 400, { error: '正则无效：' + e.message }) }
+          }
+          patch.prefixStrip = v
+        }
+        if (!Object.keys(patch).length) return json(res, 400, { error: '没有要修改的字段' })
+
+        Object.assign(cfg, patch)
+        store.write('settings.json', {
+          root: cfg.root, pad: cfg.pad, conc: cfg.conc,
+          watchInterval: cfg.watchInterval, prefixStrip: cfg.prefixStrip,
+        })
+        scheduleWatch()   // 按新间隔重排定时器
+
+        // 顺手告诉用户新正则当前会命中多少个目录
+        let prefixMatches = null
+        if (patch.prefixStrip) {
+          const s = store.read('scan.json')
+          if (s) {
+            const rx = new RegExp(patch.prefixStrip, 'i')
+            prefixMatches = s.dirs.filter((d) => rx.test(d.dir.slice(d.dir.lastIndexOf('/') + 1))).length
+          }
+        }
+        return json(res, 200, { ok: true, applied: patch, prefixMatches })
       }
       if (path === '/api/job') {
         return json(res, 200, { job: runner.getJob(), busy: runner.busy() })
@@ -178,11 +238,15 @@ server.listen(cfg.port, () => {
 
 // 自动整理：容器启动 60 秒后跑首次，之后每 watchInterval 秒一次。
 // 只自动改名（幂等所以安全），删除永远等人点确认。
-if (cfg.watchInterval > 0) {
-  const tick = async () => {
+// 间隔可在界面上改，改完立刻按新间隔重排。
+let watchTimer = null
+function scheduleWatch(first = false) {
+  if (watchTimer) { clearTimeout(watchTimer); watchTimer = null }
+  if (cfg.watchInterval <= 0) return
+  watchTimer = setTimeout(async () => {
     try { await runner.autoTidy() }
     catch (e) { console.error('[自动整理]', e.message) }
-    finally { setTimeout(tick, cfg.watchInterval * 1000) }
-  }
-  setTimeout(tick, 60_000)
+    scheduleWatch()
+  }, first ? 60_000 : cfg.watchInterval * 1000)
 }
+scheduleWatch(true)
