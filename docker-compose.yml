@@ -18,5 +18,9 @@ services:
       PAD: "4"
       # 扫描并发（只影响只读的目录遍历）
       SCAN_CONC: "4"
+      # 自动整理间隔（秒）。7200 = 每 2 小时；设 0 关闭。
+      WATCH_INTERVAL: "7200"
+      # 自动去掉的目录名前缀（正则）。留空即关闭。
+      PREFIX_STRIP: "^www[.]98T[.]la@"
     volumes:
       - ./data:/data

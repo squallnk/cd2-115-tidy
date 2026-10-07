@@ -19,6 +19,10 @@ const cfg = {
   pad: Number(process.env.PAD || 4),
   conc: Number(process.env.SCAN_CONC || 4),
   dataDir: process.env.DATA_DIR || '/data',
+  // 自动整理间隔（秒）。默认每 2 小时；设 0 关闭。
+  watchInterval: Number(process.env.WATCH_INTERVAL ?? 7200),
+  // 自动去掉的目录名前缀（正则）。设为空字符串即关闭。
+  prefixStrip: process.env.PREFIX_STRIP ?? '^www[.]98T[.]la@',
 }
 
 const store = createStore(cfg.dataDir)
@@ -29,7 +33,7 @@ async function getClient() {
   return cachedClient
 }
 
-const runner = createRunner({ getClient, store })
+const runner = createRunner({ getClient, store, cfg })
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -74,7 +78,11 @@ const server = createServer(async (req, res) => {
     if (path.startsWith('/api/')) {
       if (path === '/api/config' && req.method === 'GET') {
         // 绝不回传 token
-        return json(res, 200, { cd2Url: cfg.cd2Url, root: cfg.root, pad: cfg.pad, conc: cfg.conc, hasToken: !!cfg.cd2Token })
+        return json(res, 200, {
+          cd2Url: cfg.cd2Url, root: cfg.root, pad: cfg.pad, conc: cfg.conc,
+          hasToken: !!cfg.cd2Token,
+          watchInterval: cfg.watchInterval, prefixStrip: cfg.prefixStrip,
+        })
       }
       if (path === '/api/probe') {
         return json(res, 200, await probe())
@@ -123,6 +131,7 @@ const server = createServer(async (req, res) => {
 
       if (req.method === 'POST') {
         const body = await readBody(req)
+        if (path === '/api/auto') return json(res, 202, runner.autoTidy() || { status: 'skipped', reason: '已有作业在跑' })
         if (path === '/api/scan') return json(res, 202, runner.runScan(body.root || cfg.root, body.conc || cfg.conc))
         if (path === '/api/plan') return json(res, 202, runner.runPlan(body.pad || cfg.pad))
         if (path === '/api/rename') return json(res, 202, runner.runRename())
@@ -163,4 +172,17 @@ server.listen(cfg.port, () => {
   console.log(`  Web UI   http://0.0.0.0:${cfg.port}`)
   console.log(`  CD2      ${cfg.cd2Url}${cfg.cd2Token ? '' : '  ⚠ 未设置 CD2_TOKEN'}`)
   console.log(`  目标目录 ${cfg.root}   编号 ${cfg.pad} 位   数据目录 ${cfg.dataDir}`)
+  console.log(`  自动整理 ${cfg.watchInterval > 0 ? `每 ${(cfg.watchInterval / 3600).toFixed(1)} 小时` : '已关闭'}` +
+    (cfg.prefixStrip ? `   自动去前缀 ${cfg.prefixStrip}` : ''))
 })
+
+// 自动整理：容器启动 60 秒后跑首次，之后每 watchInterval 秒一次。
+// 只自动改名（幂等所以安全），删除永远等人点确认。
+if (cfg.watchInterval > 0) {
+  const tick = async () => {
+    try { await runner.autoTidy() }
+    catch (e) { console.error('[自动整理]', e.message) }
+    finally { setTimeout(tick, cfg.watchInterval * 1000) }
+  }
+  setTimeout(tick, 60_000)
+}

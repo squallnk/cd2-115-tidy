@@ -5,7 +5,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { scan, buildPlan, rename, planClean, clean } from './tidy.mjs'
+import { scan, buildPlan, rename, planClean, clean, stripDirPrefix } from './tidy.mjs'
 
 export function createStore(dir) {
   mkdirSync(dir, { recursive: true })
@@ -16,7 +16,7 @@ export function createStore(dir) {
   }
 }
 
-export function createRunner({ getClient, store, logLimit = 300 }) {
+export function createRunner({ getClient, store, cfg = {}, logLimit = 300 }) {
   let job = { type: null, status: 'idle', startedAt: null, finishedAt: null, progress: null, error: null, result: null }
   let stop = false
   const logs = []
@@ -106,6 +106,72 @@ export function createRunner({ getClient, store, logLimit = 300 }) {
         })
         push(`清理：删除文件 ${res.filesDeleted} / 空目录 ${res.dirsDeleted}`)
         return res
+      })
+    },
+
+    /**
+     * 自动整理（由定时器驱动）：扫描 → 目录去前缀 → 生成计划 → **自动改名** → 标记待删。
+     *
+     * 为什么自动改名却不自动删除：改名是幂等的（已达标的目标名会被算成 from === to 而跳过），
+     * 重复跑、中断重跑都安全；而删除不可逆，必须留给人点确认。
+     */
+    autoTidy() {
+      if (busy()) { push('已有作业在跑，本次自动整理跳过'); return null }
+      return run('自动整理', async () => {
+        const client = await getClient()
+        const t0 = Date.now()
+
+        let s = await scan(client, cfg.root, {
+          conc: cfg.conc,
+          shouldStop: () => stop,
+          onProgress: (p) => { job.progress = { phase: '自动·扫描', ...p } },
+        })
+        push(`扫描：${s.dirs.length} 目录 / ${s.files.length} 文件`)
+
+        // 新放进来的文件夹往往也带广告前缀，顺手去掉
+        const fixed = await stripDirPrefix(client, s, cfg.prefixStrip)
+        if (fixed) {
+          push(`目录去前缀：${fixed} 个，重新扫描…`)
+          s = await scan(client, cfg.root, {
+            conc: cfg.conc,
+            shouldStop: () => stop,
+            onProgress: (p) => { job.progress = { phase: '自动·重扫', ...p } },
+          })
+        }
+        store.write('scan.json', s)
+
+        const units = buildPlan(s, { pad: cfg.pad })
+        const cp = planClean(s)
+        store.write('plan.json', { units, pad: cfg.pad, builtAt: new Date().toISOString() })
+        store.write('cleanplan.json', cp)
+
+        const need = units.filter((u) => u.items.some((i) => i.from !== i.to)).length
+        let renamed = 0, failed = 0
+        if (need) {
+          push(`发现 ${need} 个单元需改名，自动执行…`)
+          const r = await rename(client, units, {
+            shouldStop: () => stop,
+            onProgress: (x) => { job.progress = { phase: '自动·改名', ...x } },
+          })
+          renamed = r.renamed
+          failed = r.failed
+          push(`改名：成功 ${r.renamed} / 跳过 ${r.skipped} / 失败 ${r.failed}`)
+          if (r.throttleHits) push(`⛔ 命中疑似风控 ${r.throttleHits} 次，建议调大 WATCH_INTERVAL`)
+        } else {
+          push('没有需要改名的图片')
+        }
+
+        const pending = cp.victims.length + cp.deadDirs.length
+        if (pending) {
+          push(`⚠ 待确认删除：${cp.victims.length} 个非图片文件（${(cp.bytes / 1073741824).toFixed(2)} GB）+ ${cp.deadDirs.length} 个空目录 —— 到界面点「删除」才会执行`)
+        } else {
+          push('没有需要清理的东西')
+        }
+
+        return {
+          prefixFixed: fixed, units: units.length, renamed, failed,
+          pendingClean: pending, seconds: Math.round((Date.now() - t0) / 1000),
+        }
       })
     },
   }

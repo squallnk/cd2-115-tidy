@@ -14,7 +14,9 @@ ENV NODE_ENV=production \
     PORT=8080 \
     DATA_DIR=/data \
     ROOT_PATH=/115/4 \
-    PAD=4
+    PAD=4 \
+    WATCH_INTERVAL=7200 \
+    PREFIX_STRIP=^www[.]98T[.]la@
 
 VOLUME /data
 EXPOSE 8080

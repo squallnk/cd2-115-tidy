@@ -46,6 +46,14 @@
           Description="只读目录遍历的并发数。不影响改名速度（改名由 CD2 服务端串行）"
           Type="Variable" Display="advanced" Required="false" Mask="false">4</Config>
 
+  <Config Name="自动整理间隔（秒）" Target="WATCH_INTERVAL" Default="7200" Mode=""
+          Description="每多少秒自动扫一次新放进去的文件夹并改名。7200 = 2 小时；填 0 关闭自动。注意：自动只做改名（幂等安全），删除永远要你到界面点确认"
+          Type="Variable" Display="always" Required="false" Mask="false">7200</Config>
+
+  <Config Name="自动去目录前缀" Target="PREFIX_STRIP" Default="^www[.]98T[.]la@" Mode=""
+          Description="自动去掉的目录名前缀（正则）。留空即关闭。多个前缀用 | 分隔"
+          Type="Variable" Display="always" Required="false" Mask="false">^www[.]98T[.]la@</Config>
+
   <Config Name="数据目录" Target="/data" Default="/mnt/user/appdata/cd2-115-tidy" Mode="rw"
           Description="扫描结果与改名计划落盘位置，容器重启后还能看到上次的计划"
           Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/cd2-115-tidy</Config>

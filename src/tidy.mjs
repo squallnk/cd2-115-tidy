@@ -161,6 +161,53 @@ export async function rename(client, units, { onProgress, shouldStop } = {}) {
   return { ...acc, errors }
 }
 
+/**
+ * 去掉目录名里的广告前缀（如 www.98T.la@）。
+ *
+ * 只列每个目标目录的**直接父目录**，不递归 —— 目录改名影响整棵子树，
+ * 目标名被占用时直接跳过而不是覆盖。返回成功改名的数量。
+ */
+export async function stripDirPrefix(client, { dirs }, pattern) {
+  if (!pattern) return 0
+  const rx = new RegExp(pattern, 'i')
+  const byParent = new Map()
+  for (const d of dirs) {
+    const i = d.dir.lastIndexOf('/')
+    const parent = d.dir.slice(0, i), name = d.dir.slice(i + 1)
+    if (!rx.test(name)) continue
+    const newName = name.replace(rx, '').trim()
+    if (!newName || newName === name) continue
+    if (!byParent.has(parent)) byParent.set(parent, [])
+    byParent.get(parent).push({ parent, name, newName, full: d.dir })
+  }
+
+  let done = 0
+  for (const [parent, items] of byParent) {
+    let kids
+    try { kids = await client.list(parent) } catch { continue }
+    const existing = new Set(kids.map((k) => k.name))
+    const todo = []
+    for (const it of items) {
+      if (!existing.has(it.name)) continue        // 源已不在
+      if (existing.has(it.newName)) continue      // 目标名被占用，跳过
+      todo.push(it)
+      existing.delete(it.name)
+      existing.add(it.newName)
+    }
+    if (!todo.length) continue
+    try {
+      const r = await client.renameMany(todo.map((it) => ({ src: it.full, to: it.newName })))
+      if (!r.success) throw new Error(r.errorMessage || 'success=false')
+      done += todo.length
+    } catch {
+      for (const it of todo) {
+        try { await client.renameOne(it.full, it.newName); done++ } catch { /* 单个失败忽略 */ }
+      }
+    }
+  }
+  return done
+}
+
 /** 计算待删的非图片文件，以及删完后会变空的目录（自底向上传播）。 */
 export function planClean({ dirs, files }) {
   const victims = files.filter((f) => f.k !== 'img')

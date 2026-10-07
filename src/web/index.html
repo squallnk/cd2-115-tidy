@@ -50,6 +50,7 @@
   <span id="conn"><span class="dot"></span><span class="dim">连接中…</span></span>
   <span id="qps" class="tag">QPS —</span>
   <span id="rootTag" class="tag">目标 —</span>
+  <span id="watchTag" class="tag">自动 —</span>
 </header>
 
 <main>
@@ -61,6 +62,7 @@
       <div class="dim" id="scanInfo">尚未扫描</div>
       <div class="row" style="margin-top:10px">
         <button class="primary" id="bScan">开始扫描</button>
+        <button id="bAuto" title="等于定时任务做的事：扫描 → 去目录前缀 → 自动改名。不会删除任何东西。">立即自动整理</button>
       </div>
     </div>
     <div class="card">
@@ -80,6 +82,7 @@
     <div class="card">
       <h2>4 · 清理</h2>
       <div class="dim" id="cleanInfo">—</div>
+      <div class="dim" style="margin-top:6px;color:var(--warn)">自动整理不会执行这一步，删除永远要你确认</div>
       <div class="row" style="margin-top:10px">
         <button class="danger" id="bClean">删除非图片 + 空目录</button>
       </div>
@@ -127,6 +130,11 @@ function setConn(ok, text) {
 async function boot() {
   const c = await api('/api/config')
   $('#rootTag').textContent = '目标 ' + c.root
+  $('#watchTag').textContent = c.watchInterval > 0
+    ? `自动整理 每 ${(c.watchInterval / 3600).toFixed(c.watchInterval % 3600 ? 1 : 0)} 小时`
+    : '自动整理 已关闭'
+  $('#watchTag').title = (c.prefixStrip ? `会自动去掉目录名前缀：${c.prefixStrip}\n` : '不自动去前缀\n')
+    + '自动只做改名（幂等安全）；删除永远需要你在这里点确认。'
   if (!c.hasToken) {
     $('#err').style.display = 'block'
     $('#err').innerHTML = '<b>未配置 CD2_TOKEN</b><div class="dim">启动容器时传入 <code>-e CD2_TOKEN=你的令牌</code></div>'
@@ -220,6 +228,7 @@ async function tick() {
 }
 
 $('#bScan').onclick = () => post('/api/scan')
+$('#bAuto').onclick = () => post('/api/auto')
 $('#bPlan').onclick = () => post('/api/plan')
 $('#bRename').onclick = () => { if (confirm('确认执行改名？此操作会真实修改 115 上的文件名。')) post('/api/rename') }
 $('#bClean').onclick = () => { if (confirm('确认删除所有非图片文件和空目录？文件会进 115 回收站，30 天内可恢复。')) post('/api/clean') }
