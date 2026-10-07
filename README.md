@@ -43,6 +43,18 @@ curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-cd2-115-tidy.xml 
 > 或直接在 GitHub 网页上打开模板文件、复制内容、在 Unraid 上用记事本存成
 > `/boot/config/plugins/dockerMan/templates-user/my-cd2-115-tidy.xml`。
 
+> ⚠️ **更新模板时会遇到 CDN 缓存**：jsDelivr 对 `@main` 这类分支引用有缓存（可滞后数小时），
+> 直接重下很可能拿到的还是旧版本 —— 而且不报错，只是新字段不生效。
+> 想立刻拿到最新版，给 URL 加个时间戳绕开缓存：
+>
+> ```bash
+> curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-cd2-115-tidy.xml \
+>   "https://cdn.jsdelivr.net/gh/squallnk/cd2-115-tidy@main/unraid/cd2-115-tidy.xml?t=$(date +%s)"
+> ```
+>
+> 或者用具体 commit hash 替代 `@main`（例如 `@8bb1230`），hash 引用不走缓存。
+> 验证是否拿到新版：`wc -c` 看字节数，以及 `grep Category` 看字段。
+
 然后 **Docker 页面 → Add Container → Template 下拉选 `cd2-115-tidy`**，
 只需填 **CD2 令牌** 一项，其余已预填，点 Apply 即可。
 
